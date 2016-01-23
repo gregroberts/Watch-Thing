@@ -4,6 +4,8 @@ import mechanize
 import time
 import csv
 import requests 
+import json
+from sys import argv
 
 class Episoder:
 	history = [[0,0]]
@@ -31,6 +33,7 @@ class Episoder:
 		return url
 	
 	def __init__(self, name, url, seasons = [], eps = []):
+		print 'now watching %s' % name
 		self.name = name
 		self.url = url
 		if seasons == []:
@@ -54,7 +57,8 @@ class Episoder:
 				self.eps[1] = self.eps[1] - 1
 			else:
 				self.eps[1] = 20
-				print 'looking for eps'
+				print '''looking for eps (%d,%d),(%d,%d)
+				''' % (tuple(self.eps + self.seasons))
 				self.seasons[1] = self.seasons[1] - 1	
 		self._set_history(season, ep)
 		return season, ep, guess
@@ -71,88 +75,103 @@ class Episoder:
 		sep = self.choose()
 		self.get(*sep)
 
+	def save(self):
+		obj = {
+			'name': self.name,
+			'url': self.url
+		}
+		with open(sites_json, 'rb') as f:
+			sites = json.load(f)
+		sites.append(obj)
+		with open(sites_json, 'wb') as f:
+			json.dump(sites, f)
+
 
 class Site(Episoder):
 	orig_url = ''
-
 	def reset_choices(self):
 		seasons, eps = [1, 100], [1, 100]
 
 	def set_show(self, show):
+		print 'now watching %s' % show
 		if self.orig_url == '':
 			self.orig_url = self.url
 		self.url = self.orig_url % show
 		self.name = show
 		self.reset_choices()
 
+	def save(self):
+		obj = {
+			'name': self.name,
+			'url': self.url,
+			'seasons': self.seasons,
+			'eps': self.eps
+		}
+		with open(shows_json, 'rb') as f:
+			shows = json.load(f)
+		shows.append(obj)
+		with open(shows_json, 'wb') as f:
+			json.dump(shows, f)
 
 
 
+def get_json(floc):
+	try:
+		with open(floc, 'rb') as f:
+			json_data = json.load(f)
+		return json_data
+	except Exception as e:
+		print 'failed to open %s with Exception %s' % (floc,e)
+		return []	
 
-shows = [
-	{
-	"url": "http://putlocker.is/watch-the-simpsons-tvshow-season-%d-episode-%d-online-free-putlocker.html",
-	"name":"simpsons",
-	"choices" : [(11,25),(1,15)]
-	}
-]
-
-sites = [
-	{
-	 'name':'putlocker',
-	 'url': 'http://putlocker.is/watch-%s-tvshow-season-%%d-episode-%%d-online-free-putlocker.html'
-	}
-]
-
-
+shows_json = 'shows.json'
+sites_json = 'sites.json'
 
 def auto_show(args):
 	show = Episoder(**args)
 	show.go()
+	return show
+
+default = 'simpsons'
 
 def get_show(show):
-		res = filter(lambda x: x['name'] == show, shows)
+		res = filter(lambda x: x['name'] == show, get_json(shows_json))
 		if len(res) == 1:
-			auto_go(res[0])
-		if len(res) > 2:
+			return auto_show(res[0])
+		elif len(res) > 1:
 			print '%d results found:\n ' % len(results)
 			print '\n'.join(map(lambda x: x['name'], res))
+			return res
 		else:
 			print 'no such show as %s' % show		
 
 def get_site(site):
-		res = filter(lambda x: x['name'] == site, sites)
+		res = filter(lambda x: x['name'] == site, get_json(sites_json))
 		if len(res) == 1:
 			return Site(**res[0])
-		if len(res) > 2:
+		if len(res) > 1:
 			print '%d results found:\n ' % len(results)
 			print '\n'.join(map(lambda x: x['name'], res))
 			return res
 		else:
 			print 'no such site as %s' % site		
 
-def cli(method, *args):
-	if method == 'show':
-		if len(args) == 1:
-			show = args[0]
-			get_show(show)
-		if len(args) > 1:
-			auto_show(*args)
-		else:
-			get_show(default)
+def cli(*args):
+	if args[0] == 'show':
+		show = args[1]
+		get_show(show)
+	if args[0] == 'site':
+		site = get_site(args[1])
+		if type(site) is not list:
+			site.set_show(args[2])
+			site.go()
+	else:
+		get_show(default)
 
 
-
-default = 'simpsons'
 
 
 
 
 if __name__ == '__main__':
-	#gg = Site('putlocker', 'http://putlocker.is/watch-%s-tvshow-season-%%d-episode-%%d-online-free-putlocker.html')
-	#gg.set_show('frasier')
-	#gg.go()
-	cli()
-	#gg = get_site('putlocker')
-	#gg.set_show('frasier')
-	#gg.go() 
+	cli(*argv[1:])
