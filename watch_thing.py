@@ -1,6 +1,5 @@
 from random import randint
 import webbrowser
-import mechanize
 import time
 import csv
 import requests 
