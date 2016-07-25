@@ -145,7 +145,7 @@ def get_show(show):
 			print 'no such show as %s' % show		
 
 def get_site(site):
-		res = filter(lambda x: x['name'] == site, get_json(sites_json))
+		res = filter(lambda x: site in x['name'], get_json(sites_json))
 		if len(res) == 1:
 			return Site(**res[0])
 		if len(res) > 1:
@@ -161,7 +161,7 @@ def cli(*args):
 		get_show(show)
 	if args[0] == 'site':
 		site = get_site(args[1])
-		if type(site) is not list:
+		if site and type(site) is not list:
 			site.set_show(args[2])
 			site.go()
 	else:
